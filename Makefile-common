@@ -1,5 +1,5 @@
 COVERAGE_CFLAGS= -fprofile-arcs -ftest-coverage `pkg-config --cflags --libs ExtremeCUnit`
-CFLAGS=$(CFLAGS_DIST)  $(COVERAGE_CFLAGS) -Wall -ggdb -fPIC 
+CFLAGS=$(CFLAGS_DIST)  $(COVERAGE_CFLAGS) -Wall -ggdb -fPIC  -lpthread
 DEPDIR = .dep
 OBJDIR = obj$(DIR_SUFFIX)
 DISTDIR = dist$(DIR_SUFFIX)
