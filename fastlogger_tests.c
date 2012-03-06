@@ -23,6 +23,19 @@ TEST(logg_global_threaded_debug_true) {
 	fastlogger_close();
 	return 0;
 }
+TEST(logg_global_threaded_debug_true_secondtime) {
+	int i=0;
+	fastlogger_set_default_log_level(FL_DEBUG);
+	fastlogger_separate_log_per_thread(1) ;
+	Log(FL_KEY_INFO, "test log %d\n", i++);
+	AssertEqInt(i, 1);
+	fastlogger_close();
+	Log(FL_KEY_INFO, "test log %d\n", i++);
+	AssertEqInt(i, 2);
+	fastlogger_close();
+	return 0;
+}
+char * fastlogger_thread_local_file_name(const char * name, int i);
 char * fastlogger_thread_local_file_name(const char * name, int i);
 TEST(logg_thread_file_name) {
 	char * str =  fastlogger_thread_local_file_name("output.log",0);

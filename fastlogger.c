@@ -53,8 +53,10 @@ pthread_key_t key;
 pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
 void destructor(void *ptr) {
-	_fastlogger_close((LoggerContext_t *) ptr);
-	free(ptr);
+	thread_context_t * thread_ctx = (thread_context_t *) ptr;
+	_fastlogger_close(&thread_ctx->ctx);
+	thread_ctx->prevp = thread_ctx->nextp;
+	free(thread_ctx);
 	ptr=NULL;
 	pthread_setspecific(key, NULL);
 }
@@ -84,6 +86,7 @@ static LoggerContext_t * addThreadLocalLoggerContext() {
 		strncpy (curp->ctx.log_file_name, str,sizeof(curp->ctx.log_file_name)-1);
 		curp->ctx.log_fd= NULL;
 		free(str);
+		curp->nextp=NULL;
 		prevp->nextp= curp;
 		curp->prevp = prevp;
 
@@ -138,6 +141,11 @@ void fastlogger_close(void) {
 	LoggerContext_t * logp = getLoggerContext () ;
 	_fastlogger_close(logp);
 	pthread_mutex_unlock(&g_logger_lock);
+
+	thread_context_t * ctxp = (thread_context_t *) pthread_getspecific(key);
+	if (ctxp)
+		destructor(ctxp);
+
 }
 static void open_log_file(void ) {
 	LoggerContext_t * logp = getLoggerContext () ;
