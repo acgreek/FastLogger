@@ -1,0 +1,13 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+major_version=1
+version=1.0.0
+
+Name: FastLogger
+Description: High performance logging api
+Version: ${version}
+Requires: 
+Libs: -lFastLogger 
+Cflags: 

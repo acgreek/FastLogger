@@ -2,30 +2,51 @@
 #include "fastlogger.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 
-/*
 TEST(logg_global_debug_true) {
 	int i=0;
-	fastlogger_set_default_log_level(FL_DEBUG);
+	fastlogger_set_min_default_log_level(FL_DEBUG);
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
 	fastlogger_close();
 	return 0;
 }
-*/
 TEST(logg_global_threaded_debug_true) {
 	int i=0;
-	fastlogger_set_default_log_level(FL_DEBUG);
+	fastlogger_set_min_default_log_level(FL_DEBUG);
 	fastlogger_separate_log_per_thread(1) ;
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
 	fastlogger_close();
 	return 0;
 }
+void * thread_func(void *ptr) {
+//	int i=0;;
+//	Log(FL_KEY_INFO, "test log %d\n", i++);
+//
+//	pthread_exit(NULL);
+	return NULL;
+}
+
+TEST(logg_global_threaded_debug_true_two_threads) {
+	int i=0;
+	fastlogger_set_min_default_log_level(FL_DEBUG);
+	fastlogger_separate_log_per_thread(1) ;
+	Log(FL_KEY_INFO, "test log %d\n", i++);
+	AssertEqInt(i, 1);
+	pthread_t thread_id = 0; 
+	pthread_create(&thread_id,NULL ,thread_func,0);
+	void * result;
+	pthread_join(thread_id, &result);
+	pthread_detach (thread_id);
+	fastlogger_close();
+	return 0;
+}
 TEST(logg_global_threaded_debug_true_secondtime) {
 	int i=0;
-	fastlogger_set_default_log_level(FL_DEBUG);
+	fastlogger_set_min_default_log_level(FL_DEBUG);
 	fastlogger_separate_log_per_thread(1) ;
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
@@ -45,7 +66,7 @@ TEST(logg_thread_file_name) {
 }
 TEST(logg_global_debug_false) {
 	int i=0;
-	fastlogger_set_default_log_level(FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_ERROR);
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 0);
 	return 0;
@@ -55,15 +76,15 @@ FastLoggerNS_t testns_1 = FASTLOGGERNS_INIT(testns_1);
 
 TEST(logg_ns_debug_false) {
 	int i=0;
-	fastlogger_set_default_log_level(FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_ERROR);
 	LogNS(testns_1, FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 0);
 	return 0;
 }
 TEST(logg_ns_global_debug_false) {
 	int i=0;
-	fastlogger_set_default_log_level(FL_ERROR);
-	fastlogger_set_default_log_level(FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_ERROR);
 	LogNS(testns_1,FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 0);
 	return 0;

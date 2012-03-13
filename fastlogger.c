@@ -11,8 +11,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "linkedlist.h"
 
-volatile fastlogger_level_t _global_log_level= FL_ERROR;
+volatile fastlogger_level_t _global_log_level = FASTLOGGER_LEVEL(FL_ERROR);
 volatile int global_fastlogger_load_level=0;
 
 static volatile int _global_separate_log_per_thread = 0;
@@ -41,68 +42,93 @@ char * fastlogger_thread_local_file_name(const char * name, int i) {
 }
 
 typedef struct _thread_context_t {
-	struct _thread_context_t *nextp;
-	struct _thread_context_t *prevp;
+	ListNode_t node;
 	pthread_t thread_id;
+	int id;
 	LoggerContext_t ctx;
 } thread_context_t ;
 
-thread_context_t thread_context_head =  {NULL,NULL, 0, {"output.log", NULL,0}};
+static ListNode_t  thread_context_head;
 
-pthread_key_t key;
-pthread_once_t once_control = PTHREAD_ONCE_INIT;
+static pthread_key_t key;
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
-void destructor(void *ptr) {
+static void destructor(void *ptr) {
 	thread_context_t * thread_ctx = (thread_context_t *) ptr;
 	_fastlogger_close(&thread_ctx->ctx);
-	thread_ctx->prevp = thread_ctx->nextp;
+	ListRemove(&thread_ctx->node);
 	free(thread_ctx);
 	ptr=NULL;
 	pthread_setspecific(key, NULL);
 }
-void init_routine(void) {
+static void init_routine(void) {
 	pthread_key_create(&key,destructor);
+	ListInitialize(&thread_context_head);
 }
-static LoggerContext_t * addThreadLocalLoggerContext() {
-	thread_context_t *curp, *prevp;
-	int i=0;
+
+static int thread_compare(ListNode_t * ap, ListNode_t *  dp, UNUSED void * datap) {
+	thread_context_t * a =  NODE_TO_ENTRY(thread_context_t, node, ap);
+	thread_context_t * b =  NODE_TO_ENTRY(thread_context_t, node, ap);
+	return  a->id-b->id;
+}
+static thread_context_t*createThreadLocalContext(int i) {
+	thread_context_t *curp;
 	pthread_t thread_id = pthread_self();
-	pthread_mutex_lock(&g_logger_lock);
-	curp = thread_context_head.nextp;
-	prevp = &thread_context_head;
-	while (NULL != curp) {
-		if (thread_id == curp->thread_id) {
-			break;
-		}
-		prevp= curp;
-		curp = curp->nextp;
-		i++;
-	}
-	if (NULL == curp) {
-		char *str = fastlogger_thread_local_file_name(g_logger_context.log_file_name, i);
-		curp = malloc(sizeof(thread_context_t));
-		curp->thread_id =  thread_id;
+	char *str = fastlogger_thread_local_file_name(g_logger_context.log_file_name, i);
+	curp = malloc(sizeof(thread_context_t));
+	curp->thread_id =  thread_id;
 
-		strncpy (curp->ctx.log_file_name, str,sizeof(curp->ctx.log_file_name)-1);
-		curp->ctx.log_fd= NULL;
-		free(str);
-		curp->nextp=NULL;
-		prevp->nextp= curp;
-		curp->prevp = prevp;
+	strncpy (curp->ctx.log_file_name, str,sizeof(curp->ctx.log_file_name)-1);
+	curp->ctx.log_fd= NULL;
+	free(str);
+	curp->id = i;
+	ListAddSorted(&thread_context_head,&curp->node, thread_compare, NULL);
 
-		pthread_setspecific(key, curp);
-	}
-	pthread_mutex_unlock(&g_logger_lock);
-	return &curp->ctx;	
+	pthread_setspecific(key, curp);
+	return curp;
 }
-static LoggerContext_t * getThreadLocalLoggerContext () {
+static int firstIdNotMatch(ListNode_t * nodep, void * datap) {
+	thread_context_t * a =  NODE_TO_ENTRY(thread_context_t, node, nodep);
+	int * idp = (int *)datap;
+	if (a->id != *idp) {
+		(*idp)++;
+		return 0;
+	}
+	return 1;
+
+}
+static thread_context_t* addThreadLocalLoggerContext(void) {
+	int i=0;
+	thread_context_t *curp;
+	pthread_mutex_lock(&g_logger_lock);
+
+	ListFind(&thread_context_head, firstIdNotMatch, &i);
+	curp = createThreadLocalContext(i);
+
+	pthread_mutex_unlock(&g_logger_lock);
+	return curp;	
+}
+static thread_context_t* _getThreadLocalContext (int create) {
 	pthread_once(&once_control, init_routine);
 	thread_context_t * ctxp = (thread_context_t *) pthread_getspecific(key);
-	if (NULL == ctxp)
+	if (NULL == ctxp) {
+		if (0 == create)
+			return NULL;
 		return addThreadLocalLoggerContext();
+	}
+	return ctxp;
+
+}
+static LoggerContext_t * _getThreadLocalLoggerContext (int create) {
+	thread_context_t * ctxp = _getThreadLocalContext (create);
+	if (NULL == ctxp) 
+		return NULL;
 	return &ctxp->ctx;
 }
-static LoggerContext_t * getLoggerContext () {
+static LoggerContext_t * getThreadLocalLoggerContext (void) {
+	return _getThreadLocalLoggerContext (1);
+}
+static LoggerContext_t * getLoggerContext (void) {
 	if (_global_separate_log_per_thread)
 		return getThreadLocalLoggerContext ();
 	return &g_logger_context;
@@ -113,7 +139,7 @@ void  fastlogger_separate_log_per_thread(int i) {
 	_global_separate_log_per_thread=1;
 }
 
-size_t fastlogger_current_log_file_size() {
+size_t fastlogger_current_log_file_size(void) {
 	pthread_mutex_lock(&g_logger_lock);
 	LoggerContext_t * logp = getLoggerContext () ;
 	size_t log_file_size = logp->log_file_size;	
@@ -127,27 +153,42 @@ void fastlogger_set_log_filename(const char *file_name){
 	snprintf(logp->log_file_name,sizeof(logp->log_file_name)-1,"%s.log",file_name);
 	pthread_mutex_unlock(&g_logger_lock);
 }
-void fastlogger_set_default_log_level(fastlogger_level_t level) {
-	_global_log_level = level;
+void fastlogger_set_min_default_log_level(fastlogger_level_t level) {
+	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
+	if (f >1)
+		_global_log_level = f | (f-1);
+	else 
+		_global_log_level = f;
 }
+void fastlogger_enable_log_level(fastlogger_level_t level) {
+	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
+	_global_log_level |= f ;
+}
+void fastlogger_disable_log_level(fastlogger_level_t level) {
+	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
+	_global_log_level &= ~f ;
+}
+
 static void _fastlogger_close(LoggerContext_t * logp) {
 	if (logp->log_fd) {
 		fclose (logp->log_fd);
 		logp->log_fd = NULL;
 	}
 }
-void fastlogger_close(void) {
-	pthread_mutex_lock(&g_logger_lock);
-	LoggerContext_t * logp = getLoggerContext () ;
-	_fastlogger_close(logp);
-	pthread_mutex_unlock(&g_logger_lock);
-
-	thread_context_t * ctxp = (thread_context_t *) pthread_getspecific(key);
+void fastlogger_close_thread_local(void) {
+	thread_context_t * ctxp = _getThreadLocalContext (0);
 	if (ctxp)
 		destructor(ctxp);
+}
+void fastlogger_close(void) {
+	pthread_mutex_lock(&g_logger_lock);
+	LoggerContext_t * logp = &g_logger_context;
+	_fastlogger_close(logp);
+	pthread_mutex_unlock(&g_logger_lock);
+	fastlogger_close_thread_local();
 
 }
-static void open_log_file(void ) {
+static void open_log_file(void) {
 	LoggerContext_t * logp = getLoggerContext () ;
 	logp->log_fd = fopen (logp->log_file_name,"a");
 	struct stat ss;
@@ -192,6 +233,4 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 	pthread_mutex_unlock(&g_logger_lock);
 	return nsp->level;
 }
-
-
 
