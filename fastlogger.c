@@ -12,14 +12,17 @@
 #include <sys/stat.h>
 
 #include "linkedlist.h"
+#define MAX_PATH_LENGTH 1024
 
 volatile fastlogger_level_t _global_log_level = FASTLOGGER_LEVEL(FL_ERROR);
 volatile int global_fastlogger_load_level=0;
 
 static volatile int _global_separate_log_per_thread = 0;
+static int _global_max_bytes_per_file=10000;
+static int _global_max_files=10;
 
 typedef struct _LoggerContext_t {
-	char log_file_name[1024];
+	char log_file_name[MAX_PATH_LENGTH+1];
 	FILE * log_fd;
 	size_t log_file_size;
 } LoggerContext_t;
@@ -212,6 +215,31 @@ static int write_log_message(FILE * fid, const char * fmt, va_list ap) {
 }
 
 
+void rotateFiles(LoggerContext_t *logp) {
+	int files =_global_max_files;
+	if (files > 1) {
+		char log_file_name[MAX_PATH_LENGTH];
+		char log_file_name_next[MAX_PATH_LENGTH];
+		files--;
+		snprintf(log_file_name, sizeof(log_file_name)-1,"%s.%d", logp->log_file_name, files);
+		unlink(log_file_name);
+		while (files > 0) {
+			snprintf(log_file_name_next, sizeof(log_file_name_next)-1,"%s.%d", logp->log_file_name, files+1);
+			snprintf(log_file_name, sizeof(log_file_name)-1,"%s.%d", logp->log_file_name, files);
+			rename(log_file_name,log_file_name_next); 
+			files--;
+		}
+		snprintf(log_file_name_next, sizeof(log_file_name_next)-1,"%s.%d", logp->log_file_name, files+1);
+		snprintf(log_file_name, sizeof(log_file_name)-1,"%s", logp->log_file_name);
+		rename(log_file_name,log_file_name_next); 
+	}
+	else {
+		unlink(logp->log_file_name);
+	}
+	fclose (logp->log_fd);
+	logp->log_fd = NULL;
+	
+}
 int _real_logger(const char * fmt, ...) {
 	pthread_mutex_lock(&g_logger_lock);
 	LoggerContext_t * logp = getLoggerContext () ;
@@ -223,6 +251,10 @@ int _real_logger(const char * fmt, ...) {
 	int rtn=write_log_message(logp->log_fd, fmt, ap);
         va_end(ap);
 	logp->log_file_size += rtn;
+	if (logp->log_file_size > _global_max_bytes_per_file){
+		rotateFiles(logp);
+	}
+
 	pthread_mutex_unlock(&g_logger_lock);
 	return rtn;
 }
