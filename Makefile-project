@@ -1,0 +1,8 @@
+SHARED_LIBRARY=libfastlogger.so
+MAJOR_VERSION=0.9
+MINOR_VERSION=0
+SRC=fastlogger.c
+HEADER_FILE = fastlogger.h
+PKGCONFIG_FILE = fastlogger.pc
+UNIT_TEST_SRC= unittest_tests.c unittest_cpp_tests.cc
+UNIT_TEST_SRC= fastlogger_tests.c
