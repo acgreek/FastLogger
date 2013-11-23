@@ -1,3 +1,4 @@
+#define UNIT_TEST
 #include <ExtremeCUnit.h>
 #include "fastlogger.h"
 #include <stdio.h>
@@ -36,7 +37,7 @@ TEST(logg_global_threaded_debug_true_two_threads) {
 	fastlogger_separate_log_per_thread(1) ;
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
-	pthread_t thread_id = 0; 
+	pthread_t thread_id = 0;
 	pthread_create(&thread_id,NULL ,thread_func,0);
 	void * result;
 	pthread_join(thread_id, &result);
