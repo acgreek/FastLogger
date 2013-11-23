@@ -1,0 +1,1 @@
+simple logging library. It should have very minimal impact on performance when log level is too low to log
