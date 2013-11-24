@@ -1,1 +1,58 @@
 simple logging library. It should have very minimal impact on performance when log level is too low to log
+
+key features:
+* log message line is not compiled unless necessary 
+* hierarchical name-space
+* thread-safe 
+* can be configured to log to separate log files for each thread
+
+how to use:
+the best source should always be the unit tests in fastlogger_tests.c, but here is a quick summary
+
+Setup
+
+you set the log level with the following command 
+
+fastlogger_set_min_default_log_level(fastlogger_level_offset_t level );
+
+typedef enum {FL_ERROR=0, FL_KEY_INFO, FL_EXTRA_INFO, FL_DEBUG, FL_DEBUG_EXCESSIVE} fastlogger_level_offset_t;
+
+default being FL_ERROR which should be only for errors. 
+when setting a log level higher that FL_ERROR means all levels bellow are included (I am thing about changing this to mask)
+
+default log file name is "output.log" and is written to current directory  
+
+you can change the default with the following command 
+void fastlogger_set_log_filename(const char *file_name); 
+
+
+add the following to your code before the first log message to configure each pthread to have it's own log file 
+fastlogger_separate_log_per_thread(1) ;
+
+each thread will get it's on log file. The file names used for each thread will be based of the file name configured 
+(either "output.log" or what ever you configured with the command above) by inserting before the '.log' '_t#' where #
+unique thread_id Toff (not pthread_thread). Toff's are indexes in to internal array maintained global containing the 
+list of active threads, so of course Toff are recycled as threads die and new threads startup.
+
+Logging:
+
+then you can add a log to your code with the following macro
+Log(fastlogger_level_offset_t, const char * fmt, ...);
+
+the fmt and vararg are only going to resolve to a string if the log is going to be written Toff the log file 
+
+Name-Spaces can be defined as local variable or globals 
+
+
+FastLoggerNS_t testns_1 = FASTLOGGERNS_INIT(NAMESPACE_name);
+
+
+where NAMESPACE_name is replace with whatever name you want to you use. To use a name-space,  
+
+LogNS(namespace_var_name,fastlogger_level_offset_t, const char * fmt, ...);
+
+for example  
+LogNS(testns_1,FL_KEY_INFO, "test %d",1);
+
+
+
