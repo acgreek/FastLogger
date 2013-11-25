@@ -24,8 +24,10 @@ typedef struct _LoggerContext_t {
 static LoggerContext_t g_logger_context =  {"output.log", NULL,0};
 static pthread_mutex_t g_logger_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static ListNode_t  name_space_head = {NULL, NULL};
-volatile fastlogger_level_t _global_log_level = FASTLOGGER_LEVEL(FL_ERROR);
-volatile int global_fastlogger_load_level=0;
+
+FastLoggerNS_t _global_name_base = {NULL, "", FASTLOGGER_LEVEL( FL_ERROR), 0};
+
+volatile int _global_fastlogger_load_level=1;
 
 static volatile int _global_separate_log_per_thread = 0;
 static size_t _global_max_bytes_per_file=10000;
@@ -48,24 +50,61 @@ static void _NameSpaceHeadInit(void) {
 		ListInitialize(&name_space_head);
 }
 
-void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t level) {
-	pthread_mutex_lock(&g_logger_lock);
+static NameSpaceSetting* getNameSpaceSetting(const char * namespace) {
 	_NameSpaceHeadInit();
 	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)namespace);
 	NameSpaceSetting* matching_node;
 	if (NULL == matching_node_link) {
 			matching_node = malloc( sizeof(NameSpaceSetting));
 			matching_node->name_ = strdup(namespace);
+			matching_node->log_level_ = 0;
 			ListAddEnd(&name_space_head, &matching_node->node);
 	}
 	else
 		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, node, matching_node_link);
+	return matching_node;
+}
+
+void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t level) {
+	pthread_mutex_lock(&g_logger_lock);
+	NameSpaceSetting* matching_node = getNameSpaceSetting(namespace);
 	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
 	if (f >1)
 		matching_node->log_level_ = f | (f-1);
 	else
 		matching_node->log_level_ = f;
+	_global_fastlogger_load_level++;
 	pthread_mutex_unlock(&g_logger_lock);
+}
+
+void fastlogger_ns_enable_log_level(const char * namespace, fastlogger_level_t level) {
+	pthread_mutex_lock(&g_logger_lock);
+	NameSpaceSetting* matching_node = getNameSpaceSetting(namespace);
+	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
+	matching_node->log_level_|= f ;
+	_global_fastlogger_load_level++;
+	pthread_mutex_unlock(&g_logger_lock);
+}
+void fastlogger_enable_log_level(fastlogger_level_t level) {
+	fastlogger_ns_enable_log_level("", level);
+}
+void fastlogger_ns_disable_log_level(const char * namespace, fastlogger_level_t level) {
+	pthread_mutex_lock(&g_logger_lock);
+	NameSpaceSetting* matching_node = getNameSpaceSetting(namespace);
+	fastlogger_ns_disable_log_level("", level);
+	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
+	matching_node->log_level_ &= ~f ;
+	_global_fastlogger_load_level++;
+	pthread_mutex_unlock(&g_logger_lock);
+}
+void fastlogger_disable_log_level(fastlogger_level_t level) {
+	fastlogger_ns_disable_log_level("", level);
+}
+
+void fastlogger_set_loglevel(const char * loglevel_str);
+
+void fastlogger_set_min_default_log_level(fastlogger_level_t level) {
+	fastlogger_set_min_log_level("", level);
 }
 
 static void _fastlogger_close(LoggerContext_t * logp);
@@ -192,23 +231,6 @@ void fastlogger_set_log_filename(const char *file_name){
 	snprintf(logp->log_file_name,sizeof(logp->log_file_name)-1,"%s.log",file_name);
 	pthread_mutex_unlock(&g_logger_lock);
 }
-void fastlogger_set_min_default_log_level(fastlogger_level_t level) {
-	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
-	if (f >1)
-		_global_log_level = f | (f-1);
-	else
-		_global_log_level = f;
-}
-void fastlogger_enable_log_level(fastlogger_level_t level) {
-	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
-	_global_log_level |= f ;
-}
-void fastlogger_disable_log_level(fastlogger_level_t level) {
-	fastlogger_level_t f = FASTLOGGER_LEVEL(level);
-	_global_log_level &= ~f ;
-}
-void fastlogger_set_loglevel(const char * loglevel_str);
-
 static void _fastlogger_close(LoggerContext_t * logp) {
 	if (logp->log_fd) {
 		fclose (logp->log_fd);
@@ -322,8 +344,8 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 			_fastlogger_ns_load(nsp->parentp);
 			nsp->level = nsp->parentp->level;
 	}
-	else {
-		nsp->level= _global_log_level;
+	else { //must be root
+		exit(-1); //should never happen
 	}
 	pthread_mutex_unlock(&g_logger_lock);
 	return nsp->level;

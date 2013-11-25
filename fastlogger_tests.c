@@ -23,7 +23,6 @@ SUITE_TEST(FL,logg_global_threaded_debug_true) {
 	fastlogger_separate_log_per_thread(1) ;
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
-	fastlogger_close();
 	return 0;
 }
 void * thread_func(void *ptr) {
@@ -46,7 +45,6 @@ SUITE_TEST(FL,logg_global_threaded_debug_true_two_threads) {
 	void * result;
 	pthread_join(thread_id, &result);
 	pthread_detach (thread_id);
-	fastlogger_close();
 	return 0;
 }
 SUITE_TEST(FL,logg_global_threaded_debug_true_secondtime) {
@@ -55,7 +53,6 @@ SUITE_TEST(FL,logg_global_threaded_debug_true_secondtime) {
 	fastlogger_separate_log_per_thread(1) ;
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
-	fastlogger_close();
 	Log(FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 2);
 	fastlogger_close();
@@ -107,8 +104,8 @@ FastLoggerNS_t testns_1_child = FASTLOGGERNS_CHILD_INIT(testns_1, namespace_root
 
 SUITE_TEST(FL,logg_ns_parent_debug_true) {
 	int i=0;
-	fastlogger_set_min_log_level("namespace_root", FL_ERROR);
-	fastlogger_set_min_default_log_level(FL_KEY_INFO);
+	fastlogger_set_min_log_level("namespace_root", FL_DEBUG);
+	fastlogger_set_min_default_log_level(FL_ERROR);
 	LogNS(testns_1_child, FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 1);
 	return 0;
@@ -116,8 +113,8 @@ SUITE_TEST(FL,logg_ns_parent_debug_true) {
 
 SUITE_TEST(FL,logg_ns_global_debug_true) {
 	int i=0;
-	fastlogger_set_min_default_log_level(FL_DEBUG);
-	fastlogger_set_min_log_level("namespace_root", FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_ERROR);
+	fastlogger_set_min_log_level("namespace_root::child", FL_DEBUG);
 	LogNS(testns_1_child,FL_DEBUG, "test log %d\n", i++);
 	AssertEqInt(i, 1);
 	return 0;
