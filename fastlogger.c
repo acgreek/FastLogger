@@ -37,11 +37,14 @@ int findNameSpace(ListNode_t * ap, void * datap) {
 	return (0 == strcmp(a->name_, name));
 
 }
+static void _NameSpaceHeadInit(void) {
+	if (NULL == name_space_head.nextp)
+		ListInitialize(&name_space_head);
+}
 
 void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t level) {
 	pthread_mutex_lock(&g_logger_lock);
-	if (NULL == name_space_head.nextp)
-		ListInitialize(&name_space_head);
+	_NameSpaceHeadInit();
 	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)namespace);
 	NameSpaceSetting* matching_node;
 	if (NULL == matching_node_link) {
@@ -300,6 +303,7 @@ int _real_logger(const char * fmt, ...) {
 
 fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 	pthread_mutex_lock(&g_logger_lock);
+	_NameSpaceHeadInit();
 	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)nsp->name );
 	if (NULL != matching_node_link ) {
 		NameSpaceSetting * matching_node =  NODE_TO_ENTRY(NameSpaceSetting, node, matching_node_link);
