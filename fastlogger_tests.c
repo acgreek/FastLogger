@@ -103,10 +103,22 @@ SUITE_TEST(FL,logg_ns_debug_true) {
 	AssertEqInt(i, 1);
 	return 0;
 }
+FastLoggerNS_t testns_1_child = FASTLOGGERNS_CHILD_INIT(testns_1, namespace_root::child);
+
+SUITE_TEST(FL,logg_ns_parent_debug_true) {
+	int i=0;
+	fastlogger_set_min_log_level("namespace_root", FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_KEY_INFO);
+	LogNS(testns_1_child, FL_KEY_INFO, "test log %d\n", i++);
+	AssertEqInt(i, 1);
+	return 0;
+}
+
 SUITE_TEST(FL,logg_ns_global_debug_true) {
 	int i=0;
 	fastlogger_set_min_default_log_level(FL_DEBUG);
-	LogNS(testns_1,FL_DEBUG, "test log %d\n", i++);
+	fastlogger_set_min_log_level("namespace_root", FL_ERROR);
+	LogNS(testns_1_child,FL_DEBUG, "test log %d\n", i++);
 	AssertEqInt(i, 1);
 	return 0;
 }

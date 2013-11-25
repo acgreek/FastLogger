@@ -68,9 +68,6 @@ void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t lev
 	pthread_mutex_unlock(&g_logger_lock);
 }
 
-
-
-
 static void _fastlogger_close(LoggerContext_t * logp);
 
 char * fastlogger_thread_local_file_name(const char * name, int i) {
@@ -308,7 +305,6 @@ int _real_logger(const char * fmt, ...) {
 	if (logp->log_file_size > _global_max_bytes_per_file){
 		rotateFiles(logp);
 	}
-
 	pthread_mutex_unlock(&g_logger_lock);
 	return rtn;
 }
