@@ -22,8 +22,13 @@ typedef struct _LoggerContext_t {
 
 static LoggerContext_t g_logger_context =  {"output.log", NULL,0};
 static pthread_mutex_t g_logger_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-
 static ListNode_t  name_space_head = {NULL, NULL};
+volatile fastlogger_level_t _global_log_level = FASTLOGGER_LEVEL(FL_ERROR);
+volatile int global_fastlogger_load_level=0;
+
+static volatile int _global_separate_log_per_thread = 0;
+static size_t _global_max_bytes_per_file=10000;
+static int _global_max_files=10;
 
 typedef struct _NameSpaceSetting{
 	char * name_;
@@ -31,7 +36,7 @@ typedef struct _NameSpaceSetting{
 	ListNode_t node;
 }NameSpaceSetting;
 
-int findNameSpace(ListNode_t * ap, void * datap) {
+static int findNameSpace(ListNode_t * ap, void * datap) {
 	const char * name = (const char *) datap;
 	NameSpaceSetting* a =  NODE_TO_ENTRY(NameSpaceSetting, node, ap);
 	return (0 == strcmp(a->name_, name));
@@ -61,14 +66,6 @@ void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t lev
 		matching_node->log_level_ = f;
 	pthread_mutex_unlock(&g_logger_lock);
 }
-
-
-volatile fastlogger_level_t _global_log_level = FASTLOGGER_LEVEL(FL_ERROR);
-volatile int global_fastlogger_load_level=0;
-
-static volatile int _global_separate_log_per_thread = 0;
-static size_t _global_max_bytes_per_file=10000;
-static int _global_max_files=10;
 
 
 
@@ -229,6 +226,7 @@ void fastlogger_close(void) {
 	pthread_mutex_lock(&g_logger_lock);
 	LoggerContext_t * logp = &g_logger_context;
 	_fastlogger_close(logp);
+
 	pthread_mutex_unlock(&g_logger_lock);
 	fastlogger_close_thread_local();
 
