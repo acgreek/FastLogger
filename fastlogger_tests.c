@@ -88,7 +88,7 @@ TEST(logg_ns_debug_false) {
 }
 TEST(logg_ns_global_debug_false) {
 	int i=0;
-	fastlogger_set_min_default_log_level(FL_DEBUG);
+	fastlogger_set_min_default_log_level(FL_ERROR);
 	LogNS(testns_1,FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 0);
 	return 0;
@@ -97,13 +97,13 @@ TEST(logg_ns_debug_true) {
 	int i=0;
 	fastlogger_set_min_default_log_level(FL_KEY_INFO);
 	LogNS(testns_1, FL_KEY_INFO, "test log %d\n", i++);
-	AssertEqInt(i, 0);
+	AssertEqInt(i, 1);
 	return 0;
 }
 TEST(logg_ns_global_debug_true) {
 	int i=0;
 	fastlogger_set_min_default_log_level(FL_DEBUG);
 	LogNS(testns_1,FL_DEBUG, "test log %d\n", i++);
-	AssertEqInt(i, 0);
+	AssertEqInt(i, 1);
 	return 0;
 }
