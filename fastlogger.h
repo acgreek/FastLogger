@@ -16,6 +16,7 @@ volatile int _global_fastlogger_load_level;
 
 void fastlogger_set_log_filename(const char *file_name);
 void fastlogger_set_min_default_log_level(fastlogger_level_t level);
+void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t level);
 
 void fastlogger_enable_log_level(fastlogger_level_t level);
 void fastlogger_disable_log_level(fastlogger_level_t level);
@@ -23,7 +24,7 @@ void fastlogger_disable_log_level(fastlogger_level_t level);
 size_t fastlogger_current_log_file_size();
 
 int _real_logger(const char * fmt, ...) ;
-void fastlogger_separate_log_per_thread(int i);
+void fastlogger_separate_log_per_thread(size_t i);
 
 #define Log(LVL, FMT, ...) (FASTLOGGER_LEVEL(LVL) & _global_log_level) ? _real_logger(FMT, ##__VA_ARGS__) : 0
 

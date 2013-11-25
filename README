@@ -18,7 +18,17 @@ fastlogger_set_min_default_log_level(fastlogger_level_offset_t level );
 typedef enum {FL_ERROR=0, FL_KEY_INFO, FL_EXTRA_INFO, FL_DEBUG, FL_DEBUG_EXCESSIVE} fastlogger_level_offset_t;
 
 default being FL_ERROR which should be only for errors. 
-when setting a log level higher that FL_ERROR means all levels bellow are included (I am thing about changing this to mask)
+when setting a log level higher that FL_ERROR means all levels bellow that log level are enabled
+
+log levels are can individually be turned on or off via 
+
+void fastlogger_enable_log_level(fastlogger_level_t level);
+void fastlogger_disable_log_level(fastlogger_level_t level);
+
+so if you only have 
+
+fastlogger_enable_log_level(FL_DEBUG) in your code and no then log level setting, then FL_ERROR (on by default) and FL_DEBUG
+will be turned on, but not FL_KEY_INFO, FL_EXTRA_INFO 
 
 default log file name is "output.log" and is written to current directory  
 

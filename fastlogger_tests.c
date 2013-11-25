@@ -24,6 +24,7 @@ TEST(logg_global_threaded_debug_true) {
 	return 0;
 }
 void * thread_func(void *ptr) {
+	ptr = ptr;
 //	int i=0;;
 //	Log(FL_KEY_INFO, "test log %d\n", i++);
 //
@@ -73,20 +74,36 @@ TEST(logg_global_debug_false) {
 	return 0;
 }
 
-FastLoggerNS_t testns_1 = FASTLOGGERNS_INIT(testns_1);
+FastLoggerNS_t testns_1 = FASTLOGGERNS_INIT(namespace_root);
 
 TEST(logg_ns_debug_false) {
 	int i=0;
-	fastlogger_set_min_default_log_level(FL_ERROR);
+	//fastlogger_set_loglevel("FL_ERROR,namespace_root,FL_ERROR");
+	fastlogger_set_min_default_log_level(FL_DEBUG);
+	fastlogger_set_min_log_level("namespace_root", FL_ERROR);
+
 	LogNS(testns_1, FL_KEY_INFO, "test log %d\n", i++);
 	AssertEqInt(i, 0);
 	return 0;
 }
 TEST(logg_ns_global_debug_false) {
 	int i=0;
-	fastlogger_set_min_default_log_level(FL_ERROR);
-	fastlogger_set_min_default_log_level(FL_ERROR);
+	fastlogger_set_min_default_log_level(FL_DEBUG);
 	LogNS(testns_1,FL_KEY_INFO, "test log %d\n", i++);
+	AssertEqInt(i, 0);
+	return 0;
+}
+TEST(logg_ns_debug_true) {
+	int i=0;
+	fastlogger_set_min_default_log_level(FL_KEY_INFO);
+	LogNS(testns_1, FL_KEY_INFO, "test log %d\n", i++);
+	AssertEqInt(i, 0);
+	return 0;
+}
+TEST(logg_ns_global_debug_true) {
+	int i=0;
+	fastlogger_set_min_default_log_level(FL_DEBUG);
+	LogNS(testns_1,FL_DEBUG, "test log %d\n", i++);
 	AssertEqInt(i, 0);
 	return 0;
 }
