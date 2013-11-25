@@ -13,6 +13,7 @@
 
 #include "linkedlist.h"
 #define MAX_PATH_LENGTH 1024
+#define IFFN(x) do {if (x) {free(x);x=NULL;}} while(0)
 
 typedef struct _LoggerContext_t {
 	char log_file_name[MAX_PATH_LENGTH+1];
@@ -222,10 +223,23 @@ void fastlogger_close_thread_local(void) {
 	if (ctxp)
 		destructor(ctxp);
 }
+
+
+static void nameSpaceFree(ListNode_t * ap, void * datap) {
+	if (datap == ap)
+		return;
+	NameSpaceSetting* a =  NODE_TO_ENTRY(NameSpaceSetting, node, ap);
+	IFFN(a->name_);
+	ListRemove(ap);
+	free(a);
+}
+
 void fastlogger_close(void) {
 	pthread_mutex_lock(&g_logger_lock);
 	LoggerContext_t * logp = &g_logger_context;
 	_fastlogger_close(logp);
+	if (name_space_head.nextp)
+		ListApplyAll(&name_space_head,nameSpaceFree, &name_space_head);
 
 	pthread_mutex_unlock(&g_logger_lock);
 	fastlogger_close_thread_local();
