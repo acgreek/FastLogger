@@ -15,7 +15,7 @@ set (VERSION_MINOR 0)
 
 find_package(PkgConfig)
 set(CMAKE_C_FLAGS "-Wall -Wextra -ggdb3" )
-add_library(fastlogger SHARED fastlogger.c)
+add_library(fastlogger SHARED fastlogger.c file_appender.c)
 
 IF(CYGWIN)
 	set(CMAKE_C_FLAGS "-Wl,--export-all-symbols ${CMAKE_C_FLAGS}" )

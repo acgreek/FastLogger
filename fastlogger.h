@@ -23,8 +23,6 @@ void fastlogger_enable_log_level(fastlogger_level_t level);
 void fastlogger_disable_log_level(fastlogger_level_t level);
 
 size_t fastlogger_current_log_file_size();
-
-int _real_logger(const char * fmt, ...) ;
 void fastlogger_separate_log_per_thread(size_t i);
 
 typedef struct _FastLoggerNS_t {
@@ -32,18 +30,22 @@ typedef struct _FastLoggerNS_t {
 	const char * name;
 	volatile fastlogger_level_t level;
 	volatile int load_level;
+	void * private_datap_;
 } FastLoggerNS_t;
+
+int _real_logger(FastLoggerNS_t *nsp, const char * fmt, ...) ;
+
 
 fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp);
 
 extern FastLoggerNS_t _global_name_base;
 
 
-#define FASTLOGGERNS_INIT(name) {&_global_name_base, #name, 0, -1 }
-#define FASTLOGGERNS_CHILD_INIT(parentns, name) {&parentns, #name, 0, -1 }
+#define FASTLOGGERNS_INIT(name) {&_global_name_base, #name, 0, -1, NULL}
+#define FASTLOGGERNS_CHILD_INIT(parentns, name) {&parentns, #name, 0, -1, NULL}
 
 
-#define LogNS(NS, LVL, FMT, ...) ((FASTLOGGER_LEVEL(LVL) & (_global_fastlogger_load_level != NS.load_level? _fastlogger_ns_load(&NS) : NS.level))) ? _real_logger("%s: " FMT,NS.name, ##__VA_ARGS__) : 0
+#define LogNS(NS, LVL, FMT, ...) ((FASTLOGGER_LEVEL(LVL) & (_global_fastlogger_load_level != NS.load_level? _fastlogger_ns_load(&NS) : NS.level))) ? _real_logger(&NS, "%s: " FMT,NS.name, ##__VA_ARGS__) : 0
 
 #define Log(LVL, FMT, ...)  LogNS(_global_name_base, LVL, FMT, __VA_ARGS__)
 
