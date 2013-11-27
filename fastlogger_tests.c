@@ -119,3 +119,11 @@ SUITE_TEST(FL,logg_ns_global_debug_true) {
 	AssertEqInt(i, 1);
 	return 0;
 }
+
+#include "darray.h"
+TEST(create) {
+	DynaArray ap = da_create(10, free);
+	Assert(ap != NULL);
+	da_destroy(ap);
+	return 0;
+}

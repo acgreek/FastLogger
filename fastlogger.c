@@ -340,7 +340,7 @@ int _real_logger(FastLoggerNS_t *nsp, const char * fmt, ...) {
 	char * what = NULL;
 	va_list ap;
 	va_start(ap, fmt);
-	asprintf(&what,fmt);
+	vasprintf(&what,fmt, ap);
     va_end(ap);
 
 	int rtn=  _ns_write(nsp,what) ;
