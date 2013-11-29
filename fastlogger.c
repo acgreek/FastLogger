@@ -19,6 +19,8 @@
 #define IFFN(x) do {if (x) {free(x);x=NULL;}} while(0)
 
 typedef struct _NameSpacePrivate_t {
+	ListNode_t link;
+	FastLoggerNS_t * publicp_;
 	void *appenders_[2];
 } NameSpacePrivate_t;
 
@@ -32,6 +34,7 @@ static LoggerContext_t g_logger_context =  {"output.log", NULL,0};
 static pthread_mutex_t g_logger_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static ListNode_t  name_space_head = {NULL, NULL};
 static ListNode_t  appender_head = {NULL, NULL};
+static ListNode_t  namespace_private_head = {NULL, NULL};
 
 FastLoggerNS_t _global_name_base = {NULL, "", FASTLOGGER_LEVEL( FL_ERROR), 0, NULL};
 
@@ -263,10 +266,47 @@ void fastlogger_set_log_filename(const char *file_name){
 	snprintf(logp->log_file_name,sizeof(logp->log_file_name)-1,"%s.log",file_name);
 	pthread_mutex_unlock(&g_logger_lock);
 }
+static void freeAppenders(ListNode_t * ap, void * d) {
+	d=d;
+	Appender * a =  NODE_TO_ENTRY(Appender, link, ap);
+	if (a->ctx) {
+		a->fini(a->ctx);
+		a->ctx=NULL;
+	}
+	IFFN(a->name);
+	free(a);
+}
+static void freeNameSpaceSetting(ListNode_t * ap, void * d) {
+	d=d;
+	NameSpaceSetting* a =  NODE_TO_ENTRY(NameSpaceSetting, link, ap);
+	IFFN(a->name_);
+	IFFN(a->appender_name_array[0]);
+	free(a);
+}
+static void freeNameSpace(ListNode_t * ap, void * d) {
+	d=d;
+	NameSpacePrivate_t * nspp =  NODE_TO_ENTRY(NameSpacePrivate_t, link, ap);
+	nspp->publicp_->private_datap_ = NULL;
+	free(nspp);
+}
+
 static void _fastlogger_close(LoggerContext_t * logp) {
 	if (logp->log_fd) {
 		fclose (logp->log_fd);
 		logp->log_fd = NULL;
+	}
+	if (name_space_head.nextp) {
+		ListApplyAll(&name_space_head, freeNameSpaceSetting, NULL);
+		ListInitialize(&name_space_head);
+
+	}
+	if (appender_head.nextp!=NULL) {
+		ListApplyAll(&appender_head, freeAppenders, NULL);
+		ListInitialize(&appender_head);
+	}
+	if (namespace_private_head.nextp!=NULL) {
+		ListApplyAll(&namespace_private_head, freeNameSpace, NULL);
+		ListInitialize(&namespace_private_head);
 	}
 }
 void fastlogger_close_thread_local(void) {
@@ -365,7 +405,7 @@ static NameSpaceSetting * findNameSpaceSettings(const char * name) {
 
 static int _ns_write (FastLoggerNS_t *nsp,const char * what) {
 	if (NULL == nsp->private_datap_  ) {
-		nsp->private_datap_ = initPrivateNameSpace (findNameSpaceSettings(nsp->name));
+		nsp->private_datap_ = initPrivateNameSpace (nsp, findNameSpaceSettings(nsp->name));
 	}
 	NameSpacePrivate_t * c = (NameSpacePrivate_t *) nsp->private_datap_;
 	//ListApplyAll(&c->appenders_, writeToAppender,(char *) what);
@@ -388,10 +428,11 @@ int _real_logger(FastLoggerNS_t *nsp, const char * fmt, ...) {
 	free(what);
 	return rtn;
 }
-static void * initPrivateNameSpace(NameSpaceSetting * matching_node) {
+static void * initPrivateNameSpace(FastLoggerNS_t *nsp, NameSpaceSetting * matching_node) {
 		void * ptr =  malloc (sizeof(NameSpacePrivate_t));
 		memset(ptr, 0, sizeof(NameSpacePrivate_t));
 		NameSpacePrivate_t * c = (NameSpacePrivate_t *) ptr;
+		c->publicp_ = nsp;
 		//ListInitialize(&c->appenders_);
 		c->appenders_[0] = NULL;
 		c->appenders_[1] = NULL;
@@ -402,6 +443,10 @@ static void * initPrivateNameSpace(NameSpaceSetting * matching_node) {
 				c->appenders_[0] =NODE_TO_ENTRY(Appender, link, matching_appender_link);;
 			}
 		}
+		if (namespace_private_head.nextp  == NULL)
+			ListInitialize(&namespace_private_head);
+		ListAddEnd(&namespace_private_head, &c->link);
+
 		return ptr;
 
 }
@@ -424,7 +469,7 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 		exit(-1); //should never happen
 	}
 	if (NULL == nsp->private_datap_) {
-		nsp->private_datap_ = initPrivateNameSpace (matching_node);
+		nsp->private_datap_ = initPrivateNameSpace (nsp,matching_node);
 	}
 	pthread_mutex_unlock(&g_logger_lock);
 	return nsp->level;
@@ -452,9 +497,6 @@ void fastlogger_add_default_appender(const char * name) {
 	else {
 		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
 	}
-	AppenderName * an = malloc (sizeof(AppenderName));
-	an->name  = strdup(name);
-	ListAddEnd(&matching_node->appender_name_link, &an->link);
-	matching_node->appender_name_array[0] = an->name;
+	matching_node->appender_name_array[0] = strdup(name);
 }
 
