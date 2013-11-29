@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
 
 SUITE_DESTROY(FL) {
 	fastlogger_close();
@@ -119,6 +120,23 @@ SUITE_TEST(FL,logg_ns_global_debug_true) {
 	AssertEqInt(i, 1);
 	return 0;
 }
+SUITE_TEST(FL,writtenToFile) {
+	int i=0;
+	unlink("output.log");
+	fastlogger_create_appender("FileOutput","file", NULL);
+	fastlogger_add_default_appender("FileOutput");
+	fastlogger_set_min_default_log_level(FL_ERROR);
+	fastlogger_set_min_log_level("namespace_root::child", FL_DEBUG);
+	LogNS(testns_1_child,FL_DEBUG, "test log %d\n", i++);
+	AssertEqInt(i, 1);
+
+	FILE *file;
+	Assert((file = fopen("output.log", "r")) != NULL) ;
+	fclose (file);
+	return 0;
+}
+
+
 
 #include "darray.h"
 TEST(create) {

@@ -40,6 +40,8 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp);
 
 extern FastLoggerNS_t _global_name_base;
 
+void fastlogger_create_appender(const char * name,const char * type ,...);
+void fastlogger_add_default_appender(const char * name);
 
 #define FASTLOGGERNS_INIT(name) {&_global_name_base, #name, 0, -1, NULL}
 #define FASTLOGGERNS_CHILD_INIT(parentns, name) {&parentns, #name, 0, -1, NULL}

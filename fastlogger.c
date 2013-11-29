@@ -1,10 +1,11 @@
+
+#define _GNU_SOURCE         /* See feature_test_macros(7) */
 #include "fastlogger.h"
 #include "appender_factory.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdarg.h>
-#define __USE_GNU
 #include <pthread.h>
 #include <time.h>
 #include <string.h>
@@ -12,12 +13,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+
 #include "linkedlist.h"
 #define MAX_PATH_LENGTH 1024
 #define IFFN(x) do {if (x) {free(x);x=NULL;}} while(0)
 
 typedef struct _NameSpacePrivate_t {
-	ListNode_t * appenders_;
+	void *appenders_[2];
 } NameSpacePrivate_t;
 
 typedef struct _LoggerContext_t {
@@ -36,14 +38,16 @@ FastLoggerNS_t _global_name_base = {NULL, "", FASTLOGGER_LEVEL( FL_ERROR), 0, NU
 volatile int _global_fastlogger_load_level=1;
 
 static volatile int _global_separate_log_per_thread = 0;
-static size_t _global_max_bytes_per_file=10000;
-static int _global_max_files=10;
+//static int _global_max_files=10;
 
 typedef struct _NameSpaceSetting{
 	char * name_;
 	fastlogger_level_t log_level_;
 	ListNode_t link;
+	ListNode_t appender_name_link;
+	void * appender_name_array[10];
 }NameSpaceSetting;
+
 static void * initPrivateNameSpace();
 
 static int findNameSpace(ListNode_t * ap, void * datap) {
@@ -52,9 +56,32 @@ static int findNameSpace(ListNode_t * ap, void * datap) {
 	return (0 == strcmp(a->name_, name));
 
 }
+typedef struct _AppenderName {
+	char * name;
+	ListNode_t link;
+}AppenderName;
+
+static int findAppender(ListNode_t * ap, void * datap) {
+	const char * name = (const char *) datap;
+	AppenderName * a =  NODE_TO_ENTRY(AppenderName, link, ap);
+	return (0 == strcmp(a->name, name));
+}
+
 static void _NameSpaceHeadInit(void) {
 	if (NULL == name_space_head.nextp)
 		ListInitialize(&name_space_head);
+}
+static NameSpaceSetting* create_namespace_settings(const char * namespace) {
+	NameSpaceSetting* matching_node;
+	matching_node = malloc( sizeof(NameSpaceSetting));
+	matching_node->name_ = strdup(namespace);
+	matching_node->log_level_ = 0;
+	ListAddEnd(&name_space_head, &matching_node->link);
+	ListInitialize(&matching_node->appender_name_link);
+	matching_node->appender_name_array[0] =NULL;
+	matching_node->appender_name_array[1] =NULL;
+	return matching_node;
+
 }
 
 static NameSpaceSetting* getNameSpaceSetting(const char * namespace) {
@@ -62,10 +89,7 @@ static NameSpaceSetting* getNameSpaceSetting(const char * namespace) {
 	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)namespace);
 	NameSpaceSetting* matching_node;
 	if (NULL == matching_node_link) {
-			matching_node = malloc( sizeof(NameSpaceSetting));
-			matching_node->name_ = strdup(namespace);
-			matching_node->log_level_ = 0;
-			ListAddEnd(&name_space_head, &matching_node->link);
+			matching_node = create_namespace_settings(namespace);
 	}
 	else
 		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
@@ -81,6 +105,7 @@ void fastlogger_set_min_log_level(const char * namespace, fastlogger_level_t lev
 	else
 		matching_node->log_level_ = f;
 	_global_fastlogger_load_level++;
+
 	pthread_mutex_unlock(&g_logger_lock);
 }
 
@@ -271,6 +296,7 @@ void fastlogger_close(void) {
 	fastlogger_close_thread_local();
 
 }
+/*
 static void open_log_file(void) {
 	LoggerContext_t * logp = getLoggerContext () ;
 	logp->log_fd = fopen (logp->log_file_name,"a");
@@ -320,17 +346,33 @@ static void rotateFiles(LoggerContext_t *logp) {
 	logp->log_fd = NULL;
 
 }
+*/
 void writeToAppender(ListNode_t * nodep, void * datap) {
 	const char * what= datap;
 	Appender * appender =  NODE_TO_ENTRY(Appender, link, nodep);
 	appender->write(appender->ctx,what);
 }
 
+static NameSpaceSetting * findNameSpaceSettings(const char * name) {
+	NameSpaceSetting* matching_node = NULL;
+	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)name);
+	if (matching_node_link){
+		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
+	}
+	return matching_node;
+
+}
+
 static int _ns_write (FastLoggerNS_t *nsp,const char * what) {
-	if (NULL == nsp->private_datap_  )
-		nsp->private_datap_ = initPrivateNameSpace ();
+	if (NULL == nsp->private_datap_  ) {
+		nsp->private_datap_ = initPrivateNameSpace (findNameSpaceSettings(nsp->name));
+	}
 	NameSpacePrivate_t * c = (NameSpacePrivate_t *) nsp->private_datap_;
-	ListApplyAll(c->appenders_, writeToAppender,(char *) what);
+	//ListApplyAll(&c->appenders_, writeToAppender,(char *) what);
+	if (c->appenders_[0] ) {
+		Appender * appender = (Appender * ) c->appenders_[0];
+		appender->write(appender->ctx, what);
+	}
 	if (nsp->parentp)
 		_ns_write (nsp->parentp,what);
 	return 0;
@@ -342,16 +384,24 @@ int _real_logger(FastLoggerNS_t *nsp, const char * fmt, ...) {
 	va_start(ap, fmt);
 	vasprintf(&what,fmt, ap);
     va_end(ap);
-
 	int rtn=  _ns_write(nsp,what) ;
 	free(what);
 	return rtn;
 }
-static void * initPrivateNameSpace() {
+static void * initPrivateNameSpace(NameSpaceSetting * matching_node) {
 		void * ptr =  malloc (sizeof(NameSpacePrivate_t));
 		memset(ptr, 0, sizeof(NameSpacePrivate_t));
 		NameSpacePrivate_t * c = (NameSpacePrivate_t *) ptr;
-		ListInitialize(&c->appenders_);
+		//ListInitialize(&c->appenders_);
+		c->appenders_[0] = NULL;
+		c->appenders_[1] = NULL;
+		if (matching_node && matching_node->appender_name_array[0] && appender_head.nextp) {
+			ListNode_t * matching_appender_link = ListFind(&appender_head, findAppender,  matching_node->appender_name_array[0]);
+			if (matching_appender_link) {
+
+				c->appenders_[0] =NODE_TO_ENTRY(Appender, link, matching_appender_link);;
+			}
+		}
 		return ptr;
 
 }
@@ -360,8 +410,9 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 	pthread_mutex_lock(&g_logger_lock);
 	_NameSpaceHeadInit();
 	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)nsp->name );
+	NameSpaceSetting * matching_node= NULL;
 	if (NULL != matching_node_link ) {
-		NameSpaceSetting * matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
+		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
 		nsp->level = matching_node->log_level_;
 	}
 	else if (nsp->parentp) {
@@ -373,9 +424,37 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 		exit(-1); //should never happen
 	}
 	if (NULL == nsp->private_datap_) {
-		nsp->private_datap_ = initPrivateNameSpace ();
+		nsp->private_datap_ = initPrivateNameSpace (matching_node);
 	}
 	pthread_mutex_unlock(&g_logger_lock);
 	return nsp->level;
+}
+
+void fastlogger_create_appender(const char * name,const char * type ,...) {
+	va_list ap;
+	va_start(ap, type);
+	Appender * appenderp = make_file_apender(type, ap);
+    va_end(ap);
+	appenderp->name = strdup(name);
+	if (appender_head.nextp == NULL)
+		ListInitialize(&appender_head);
+	ListAddEnd(&appender_head, &appenderp->link);
+}
+
+
+void fastlogger_add_default_appender(const char * name) {
+	_NameSpaceHeadInit();
+	ListNode_t * matching_node_link = ListFind(&name_space_head, findNameSpace, (void*)"");
+	NameSpaceSetting* matching_node;
+	if (NULL == matching_node_link) {
+		matching_node = create_namespace_settings("");
+	}
+	else {
+		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
+	}
+	AppenderName * an = malloc (sizeof(AppenderName));
+	an->name  = strdup(name);
+	ListAddEnd(&matching_node->appender_name_link, &an->link);
+	matching_node->appender_name_array[0] = an->name;
 }
 

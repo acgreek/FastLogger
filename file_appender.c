@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include "fastlogger_appender.h"
 
@@ -95,11 +96,14 @@ static int file_appender_write(void * ptr, const char * what) {
 	return 0;
 }
 
-Appender* make_file_apender() {
+Appender* make_file_apender(const char * type, va_list arg) {
+	arg= arg;
+	type=type;
 	Appender * ap = malloc (sizeof(Appender));
 	ap->init = file_appender_init;
 	ap->fini = file_appender_fini;
 	ap->write = file_appender_write;
+	ap->ctx  = ap->init(0);
 	return ap;
 }
 

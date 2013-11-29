@@ -5,6 +5,7 @@
 #include "linkedlist.h"
 
 typedef struct _Appender {
+	char * name;
 	ListNode_t link;
 	volatile fastlogger_level_t level;
 	void * ctx;
@@ -12,4 +13,6 @@ typedef struct _Appender {
 	void (*fini ) (void *ptr);
 	int (*write) (void *ptr, const char * what);
 }Appender;
+
+
 #endif
