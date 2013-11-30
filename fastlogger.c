@@ -12,6 +12,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "darray.h"
 
 
 #include "linkedlist.h"
@@ -21,7 +22,7 @@
 typedef struct _NameSpacePrivate_t {
 	ListNode_t link;
 	FastLoggerNS_t * publicp_;
-	void *appenders_[2];
+	DynaArray appenders_;
 } NameSpacePrivate_t;
 
 typedef struct _LoggerContext_t {
@@ -47,8 +48,7 @@ typedef struct _NameSpaceSetting{
 	char * name_;
 	fastlogger_level_t log_level_;
 	ListNode_t link;
-	ListNode_t appender_name_link;
-	void * appender_name_array[10];
+	DynaArray appenders_name_array;
 }NameSpaceSetting;
 
 static void * initPrivateNameSpace();
@@ -80,9 +80,7 @@ static NameSpaceSetting* create_namespace_settings(const char * namespace) {
 	matching_node->name_ = strdup(namespace);
 	matching_node->log_level_ = 0;
 	ListAddEnd(&name_space_head, &matching_node->link);
-	ListInitialize(&matching_node->appender_name_link);
-	matching_node->appender_name_array[0] =NULL;
-	matching_node->appender_name_array[1] =NULL;
+	matching_node->appenders_name_array = da_create(5, free);
 	return matching_node;
 
 }
@@ -280,13 +278,15 @@ static void freeNameSpaceSetting(ListNode_t * ap, void * d) {
 	d=d;
 	NameSpaceSetting* a =  NODE_TO_ENTRY(NameSpaceSetting, link, ap);
 	IFFN(a->name_);
-	IFFN(a->appender_name_array[0]);
+
+	da_destroy(&a->appenders_name_array);
 	free(a);
 }
 static void freeNameSpace(ListNode_t * ap, void * d) {
 	d=d;
 	NameSpacePrivate_t * nspp =  NODE_TO_ENTRY(NameSpacePrivate_t, link, ap);
 	nspp->publicp_->private_datap_ = NULL;
+	da_destroy (&nspp->appenders_);
 	free(nspp);
 }
 
@@ -402,17 +402,17 @@ static NameSpaceSetting * findNameSpaceSettings(const char * name) {
 	return matching_node;
 
 }
-
+static void applyToAppender(void *ptr, void * pp) {
+		Appender * appender = (Appender * ) ptr;
+		char * what= (char *) pp;
+		appender->write(appender->ctx, what);
+}
 static int _ns_write (FastLoggerNS_t *nsp,const char * what) {
 	if (NULL == nsp->private_datap_  ) {
 		nsp->private_datap_ = initPrivateNameSpace (nsp, findNameSpaceSettings(nsp->name));
 	}
 	NameSpacePrivate_t * c = (NameSpacePrivate_t *) nsp->private_datap_;
-	//ListApplyAll(&c->appenders_, writeToAppender,(char *) what);
-	if (c->appenders_[0] ) {
-		Appender * appender = (Appender * ) c->appenders_[0];
-		appender->write(appender->ctx, what);
-	}
+	da_foreach(c->appenders_, applyToAppender,  (void *) what);
 	if (nsp->parentp)
 		_ns_write (nsp->parentp,what);
 	return 0;
@@ -428,20 +428,23 @@ int _real_logger(FastLoggerNS_t *nsp, const char * fmt, ...) {
 	free(what);
 	return rtn;
 }
+
+void assocateAppender (void *  ptr, void * pp) {
+	char * name = (char *)ptr;
+	NameSpacePrivate_t * c = (NameSpacePrivate_t *) pp;
+	ListNode_t * matching_appender_link = ListFind(&appender_head, findAppender, name);
+	if (matching_appender_link) {
+		da_add_item(&c->appenders_,NODE_TO_ENTRY(Appender, link, matching_appender_link));
+	}
+}
 static void * initPrivateNameSpace(FastLoggerNS_t *nsp, NameSpaceSetting * matching_node) {
 		void * ptr =  malloc (sizeof(NameSpacePrivate_t));
 		memset(ptr, 0, sizeof(NameSpacePrivate_t));
 		NameSpacePrivate_t * c = (NameSpacePrivate_t *) ptr;
 		c->publicp_ = nsp;
-		//ListInitialize(&c->appenders_);
-		c->appenders_[0] = NULL;
-		c->appenders_[1] = NULL;
-		if (matching_node && matching_node->appender_name_array[0] && appender_head.nextp) {
-			ListNode_t * matching_appender_link = ListFind(&appender_head, findAppender,  matching_node->appender_name_array[0]);
-			if (matching_appender_link) {
-
-				c->appenders_[0] =NODE_TO_ENTRY(Appender, link, matching_appender_link);;
-			}
+		c->appenders_ = da_create(5, NULL);
+		if (matching_node && appender_head.nextp && da_len(matching_node->appenders_name_array) ) {
+			da_foreach(matching_node->appenders_name_array, assocateAppender, c);
 		}
 		if (namespace_private_head.nextp  == NULL)
 			ListInitialize(&namespace_private_head);
@@ -497,6 +500,6 @@ void fastlogger_add_default_appender(const char * name) {
 	else {
 		matching_node =  NODE_TO_ENTRY(NameSpaceSetting, link, matching_node_link);
 	}
-	matching_node->appender_name_array[0] = strdup(name);
+	da_add_item(&matching_node->appenders_name_array, strdup(name));
 }
 

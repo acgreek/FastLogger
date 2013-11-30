@@ -142,6 +142,28 @@ SUITE_TEST(FL,writtenToFile) {
 TEST(create) {
 	DynaArray ap = da_create(10, free);
 	Assert(ap != NULL);
-	da_destroy(ap);
+	da_destroy(&ap);
+	return 0;
+}
+TEST(addOne) {
+	DynaArray ap = da_create(10, free);
+	Assert(ap != NULL);
+	da_add_item(&ap,strdup("ff"));
+	AssertEqInt(da_len(ap), 1);
+	da_destroy(&ap);
+	return 0;
+}
+void setFirstTo(void * ptr, void * extrap) {
+	extrap= extrap;
+	char * str = (char *)ptr;
+	str[0] = '0';
+}
+TEST(foreach) {
+	DynaArray ap = da_create(10, free);
+	Assert(ap != NULL);
+	da_add_item(&ap,strdup("ff"));
+	da_foreach( ap,setFirstTo , NULL );
+	AssertEqStr(ap[0], "0f");
+	da_destroy(&ap);
 	return 0;
 }
