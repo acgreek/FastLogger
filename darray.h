@@ -9,6 +9,8 @@
 # define UNUSED
 #endif
 #include <string.h> // memset
+#include <stdio.h>
+#include <stdlib.h>
 typedef void ** DynaArray ;
 
 typedef struct _DynaArrayHead_t {

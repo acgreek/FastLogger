@@ -388,9 +388,9 @@ static void rotateFiles(LoggerContext_t *logp) {
 }
 */
 void writeToAppender(ListNode_t * nodep, void * datap) {
-	const char * what= datap;
+	WriteCtx *writeCtx = datap;
 	Appender * appender =  NODE_TO_ENTRY(Appender, link, nodep);
-	appender->write(appender->ctx,what);
+	appender->write(appender->ctx,writeCtx);
 }
 
 static NameSpaceSetting * findNameSpaceSettings(const char * name) {
@@ -404,17 +404,16 @@ static NameSpaceSetting * findNameSpaceSettings(const char * name) {
 }
 static void applyToAppender(void *ptr, void * pp) {
 		Appender * appender = (Appender * ) ptr;
-		char * what= (char *) pp;
-		appender->write(appender->ctx, what);
+		appender->write(appender->ctx, pp);
 }
-static int _ns_write (FastLoggerNS_t *nsp,const char * what) {
+static int _ns_write (FastLoggerNS_t *nsp,WriteCtx *writeCtx) {
 	if (NULL == nsp->private_datap_  ) {
 		nsp->private_datap_ = initPrivateNameSpace (nsp, findNameSpaceSettings(nsp->name));
 	}
 	NameSpacePrivate_t * c = (NameSpacePrivate_t *) nsp->private_datap_;
-	da_foreach(c->appenders_, applyToAppender,  (void *) what);
+	da_foreach(c->appenders_, applyToAppender,  (void *) writeCtx);
 	if (nsp->parentp)
-		_ns_write (nsp->parentp,what);
+		_ns_write (nsp->parentp,writeCtx);
 	return 0;
 }
 
@@ -424,7 +423,9 @@ int _real_logger(FastLoggerNS_t *nsp, const char * fmt, ...) {
 	va_start(ap, fmt);
 	vasprintf(&what,fmt, ap);
     va_end(ap);
-	int rtn=  _ns_write(nsp,what) ;
+	WriteCtx writeCtx;
+	writeCtx.what = what;
+	int rtn=  _ns_write(nsp,&writeCtx) ;
 	free(what);
 	return rtn;
 }
@@ -449,9 +450,7 @@ static void * initPrivateNameSpace(FastLoggerNS_t *nsp, NameSpaceSetting * match
 		if (namespace_private_head.nextp  == NULL)
 			ListInitialize(&namespace_private_head);
 		ListAddEnd(&namespace_private_head, &c->link);
-
 		return ptr;
-
 }
 
 fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){

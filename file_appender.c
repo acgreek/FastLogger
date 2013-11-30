@@ -20,7 +20,7 @@ typedef struct _FileAppender_t {
 } FileAppender_t ;
 
 
-static void * file_appender_init(int id, ...) {
+static void * file_appender_init(int id, UNUSED DynaArray ap) {
 	FileAppender_t * fap = malloc (sizeof(FileAppender_t));
 	fap->id_= id;
 	fap->filename_ = strdup("output.log");
@@ -83,12 +83,12 @@ static void rotateFiles(FileAppender_t *fap) {
 	fap->fid_ = NULL;
 
 }
-static int file_appender_write(void * ptr, const char * what) {
+static int file_appender_write(void * ptr, WriteCtx * writeCtx) {
 	FileAppender_t * fap = (FileAppender_t* )ptr;
 	if (NULL == fap->fid_) {
 		open_log_file(fap);
 	}
-	int rtn=write_log_message(fap->fid_, what);
+	int rtn=write_log_message(fap->fid_, writeCtx->what);
 	fap->filesize_ += rtn;
 	if (fap->filesize_ > fap->max_bytes_per_file_){
 		rotateFiles(fap);
@@ -103,7 +103,7 @@ Appender* make_file_apender(const char * type, va_list arg) {
 	ap->init = file_appender_init;
 	ap->fini = file_appender_fini;
 	ap->write = file_appender_write;
-	ap->ctx  = ap->init(0);
+	ap->ctx  = ap->init(0,NULL );
 	return ap;
 }
 

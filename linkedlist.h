@@ -1,13 +1,13 @@
 #ifndef  LINKEDLIST_H
 #define LINKEDLIST_H
 #include <stddef.h>
-#ifdef UNUSED 
-#elif defined(__GNUC__) 
+#ifdef UNUSED
+#elif defined(__GNUC__)
 # define UNUSED __attribute__ ((unused))
-#elif defined(__LCLINT__) 
-# define UNUSED 
-#else 
-# define UNUSED 
+#elif defined(__LCLINT__)
+# define UNUSED
+#else
+# define UNUSED
 #endif
 
 typedef struct _ListNode_t {
@@ -16,21 +16,21 @@ typedef struct _ListNode_t {
 } ListNode_t;
 
 #define NODE_TO_ENTRY(STRUCTURE, ATTRIB,POINTER) \
-	(STRUCTURE *)(((char *)POINTER)-offsetof(STRUCTURE,ATTRIB)) 
+	(STRUCTURE *)(((char *)POINTER)-offsetof(STRUCTURE,ATTRIB))
 #define LINKEDLIST_FIRST(LISTP) LISTP.nextp
 #define LINKEDLIST_LAST(LISTP) LISTP.prevp
 
-#define LINKEDLIST_IS_EMPTY(LISTP) (LISTP.prevp == &LISTP) 
+#define LINKEDLIST_IS_EMPTY(LISTP) (LISTP.prevp == &LISTP)
 
 /**
  * initialize a linked list
  * you must call this before using a linked list
  *
- * @param listp  pointer to head of the Linked list 
+ * @param listp  pointer to head of the Linked list
  */
 static inline void ListInitialize(ListNode_t * nodep) {
 	nodep->nextp = nodep;
-	nodep->prevp = nodep; 
+	nodep->prevp = nodep;
 }
 
 /**
@@ -38,11 +38,11 @@ static inline void ListInitialize(ListNode_t * nodep) {
  *
  * @assuption, linked list is initialized
  *
- * @param listp  pointer to head of the Linked list 
+ * @param listp  pointer to head of the Linked list
  * @param nodep  pointer to node to be removed
  */
 static inline void ListAddEnd(ListNode_t * listp, ListNode_t *nodep) {
-	nodep->nextp = listp;	
+	nodep->nextp = listp;
 	nodep->prevp = listp->prevp;
 	listp->prevp->nextp = nodep;
 	listp->prevp = nodep;
@@ -54,11 +54,11 @@ static inline void ListAddEnd(ListNode_t * listp, ListNode_t *nodep) UNUSED;
  *
  * @assuption, linked list is initialized
  *
- * @param listp  pointer to head of the Linked list 
+ * @param listp  pointer to head of the Linked list
  * @param nodep  pointer to node to be removed
  */
 static inline void ListAddBegin(ListNode_t * listp, ListNode_t *nodep) {
-	nodep->nextp = listp->nextp;	
+	nodep->nextp = listp->nextp;
 	nodep->prevp = listp;
 	listp->nextp->prevp = nodep;
 	listp->nextp = nodep;
@@ -73,7 +73,7 @@ static inline void ListAddBegin(ListNode_t * listp, ListNode_t *nodep) UNUSED;
 /**
  * returns the number of elements in the lsit
  *
- * @param listp  pointer to head of the Linked list 
+ * @param listp  pointer to head of the Linked list
  *
  */
 static inline int ListLength(ListNode_t * listp) {
@@ -81,7 +81,7 @@ static inline int ListLength(ListNode_t * listp) {
 	ListNode_t *cur_nodep =listp->nextp;
 	while (listp != cur_nodep) {
 		cur_nodep= cur_nodep->nextp;
-		count++;	
+		count++;
 	}
 	return count;
 }
@@ -104,7 +104,7 @@ static void ListRemove(ListNode_t * nodep)   {
 static void ListRemove(ListNode_t * nodep) UNUSED;
 
 /**
- * Apply function type 
+ * Apply function type
  *
  * @param nodep  pointer to node
  * @param datap  pointer passed in as the second arg to function being applied
@@ -122,10 +122,10 @@ typedef int ListIsMatchFunc_t(ListNode_t * nodep, void * datap);
 /**
  * applies the function provided by the func param to every node in the list
  *
- * @param listp  pointer to head of the Linked list 
+ * @param listp  pointer to head of the Linked list
  * @param func   function to apply to every node
  * @param datap  pointer passed in as the second arg to function being applied
- * 
+ *
  * @Note you should be able to safely remve the current node from with the func
  */
 static void ListApplyAll(ListNode_t * listp, ListApplyFunc_t func, void *datap) {
@@ -142,31 +142,30 @@ static void ListApplyAll(ListNode_t * listp, ListApplyFunc_t func, void *datap) 
 /**
  * applies the function provided by the func param to every node in the list
  *
- * @param listp  pointer to head of the Linked list 
- * @param func   function that will return 1 on match and 0 on not match 
- * @param datap  pointer passed in as the second arg to find function 
+ * @param listp  pointer to head of the Linked list
+ * @param func   function that will return 1 on match and 0 on not match
+ * @param datap  pointer passed in as the second arg to find function
  * @return       pointer to first node that matches or NULL if non-match
  */
-static ListNode_t * ListFind(ListNode_t * listp, ListIsMatchFunc_t func, void *datap) {
+static  UNUSED ListNode_t *  ListFind(ListNode_t * listp, ListIsMatchFunc_t func, void *datap){
 	ListNode_t *cur_nodep =listp->nextp;
 	while (listp != cur_nodep) {
 		ListNode_t * nextp =cur_nodep->nextp ;
-		if (1 == func (cur_nodep, datap)) 
+		if (1 == func (cur_nodep, datap))
 			return cur_nodep;
 		cur_nodep= nextp;
 	}
 	return NULL;
 }
 
-
 /**
  * applies the function provided by the func param to every node in the list
  *
- * @param listp  pointer to head of the Linked list 
+ * @param listp  pointer to head of the Linked list
  * @param func   function to apply to every node
  * @param datap  pointer passed in as the second arg to function being applied
  *
- * @same a ListApplyAll 
+ * @same a ListApplyAll
  */
 #define ListDestroyAll ListApplyAll
 
@@ -185,16 +184,16 @@ static void ListSort(ListNode_t * listp, ListCompareFunc_t func, void *datap) {
 		while (listp != cur_nodep && listp != cur_nodep->nextp) {
 			ListNode_t * nextp =cur_nodep->nextp ;
 			if (0 > func (cur_nodep, nextp,  datap)) {
-				ListRemove(cur_nodep);			
+				ListRemove(cur_nodep);
 				ListInsertAfter(nextp, cur_nodep);
 			}
 			else {
-				cur_nodep=nextp;	
+				cur_nodep=nextp;
 			}
 		}
 		length -=1;
 	}
-}	
+}
 static void ListSort(ListNode_t * listp, ListCompareFunc_t func, void *datap) UNUSED;
 
 static void ListAddSorted(ListNode_t * listp,ListNode_t * nodep,  ListCompareFunc_t func, void *datap) {
