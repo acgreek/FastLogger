@@ -153,6 +153,38 @@ TEST(addOne) {
 	da_destroy(&ap);
 	return 0;
 }
+TEST(addTwo) {
+	DynaArray ap = da_create(10, free);
+	Assert(ap != NULL);
+	da_add_item(&ap,strdup("ff"));
+	da_add_item(&ap,strdup("dd"));
+	AssertEqInt(da_len(ap), 2);
+	AssertEqStr(ap[0], "ff");
+	AssertEqStr(ap[1], "dd");
+	Assert(ap[2]==NULL );
+	da_destroy(&ap);
+	return 0;
+}
+TEST(addthreeGrow) {
+	DynaArray ap = da_create(3, free);
+	Assert(ap != NULL);
+	da_add_item(&ap,strdup("ff"));
+	da_add_item(&ap,strdup("dd"));
+	da_add_item(&ap,strdup("cc"));
+	AssertEqInt(da_len(ap), 3);
+	AssertEqStr(ap[0], "ff");
+	AssertEqStr(ap[1], "dd");
+	AssertEqStr(ap[2], "cc");
+	Assert(ap[3]==NULL );
+	da_add_item(&ap,strdup("dd"));
+	AssertEqStr(ap[0], "ff");
+	AssertEqStr(ap[1], "dd");
+	AssertEqStr(ap[2], "cc");
+	AssertEqStr(ap[3], "dd");
+	Assert(ap[4]==NULL );
+	da_destroy(&ap);
+	return 0;
+}
 void setFirstTo(void * ptr, void * extrap) {
 	extrap= extrap;
 	char * str = (char *)ptr;

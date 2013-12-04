@@ -48,13 +48,14 @@ static inline void  UNUSED da_destroy(DynaArray *ap) {
 static size_t UNUSED da_add_item(DynaArray *a,void * ptr) {
 	DynaArrayHead_t *headp = (DynaArrayHead_t *)*a;
 	headp = headp-1;
-	if (headp->reserve == (headp->filled -1)) {
+	if ((headp->reserve - 1) == headp->filled) {
 		headp->reserve +=headp->growby;
 		headp = realloc(headp, sizeof(DynaArrayHead_t) + sizeof(void *) * headp->reserve);
 	}
 	*a =(DynaArray) (headp+1);
 	(*a)[headp->filled] = ptr;
 	headp->filled++;
+	(*a)[headp->filled] = NULL;
 	return headp->filled -1;
 }
 static void UNUSED da_foreach(DynaArray ap, void func(void * ptr, void * extrap), void * extrap) {
