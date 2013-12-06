@@ -10,6 +10,11 @@ typedef struct _WriteCtx {
 	const char * what;
 }WriteCtx;
 
+typedef struct _AppenderParam {
+	char * key;
+	char * value;
+}AppenderParam;
+
 typedef struct _Appender {
 	char * name;
 	ListNode_t link;

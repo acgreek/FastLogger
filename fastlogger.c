@@ -476,16 +476,25 @@ fastlogger_level_t _fastlogger_ns_load(FastLoggerNS_t *nsp){
 	pthread_mutex_unlock(&g_logger_lock);
 	return nsp->level;
 }
+void freeAppenderParam(void * ptr) {
+	AppenderParam *ap= (AppenderParam *) ptr;
+	IFFN(ap->key);
+	IFFN(ap->value);
+	free(ap);
+}
 
 void fastlogger_create_appender(const char * name,const char * type ,...) {
+	DynaArray settings = da_create (5, freeAppenderParam);
 	va_list ap;
 	va_start(ap, type);
-	Appender * appenderp = make_file_apender(type, ap);
+
     va_end(ap);
+	Appender * appenderp = make_file_apender(type, settings);
 	appenderp->name = strdup(name);
 	if (appender_head.nextp == NULL)
 		ListInitialize(&appender_head);
 	ListAddEnd(&appender_head, &appenderp->link);
+	da_destroy(&settings);
 }
 
 
