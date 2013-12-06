@@ -32,6 +32,10 @@ static void * file_appender_init(int id, UNUSED DynaArray ap) {
 }
 static void file_appender_fini(void * ptr) {
 	FileAppender_t * fap = (FileAppender_t* )ptr;
+	if (fap->fid_) {
+		fclose(fap->fid_);
+		fap->fid_ =NULL;
+	}
 	if (fap->filename_) free(fap->filename_); fap->filename_=NULL;
 	free(fap);
 }
